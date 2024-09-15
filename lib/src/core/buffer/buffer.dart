@@ -2,8 +2,8 @@ import 'dart:math' show max, min;
 
 import 'package:xterm/src/core/buffer/cell_offset.dart';
 import 'package:xterm/src/core/buffer/line.dart';
-import 'package:xterm/src/core/buffer/range_line.dart';
 import 'package:xterm/src/core/buffer/range.dart';
+import 'package:xterm/src/core/buffer/range_line.dart';
 import 'package:xterm/src/core/charset.dart';
 import 'package:xterm/src/core/cursor.dart';
 import 'package:xterm/src/core/reflow.dart';
@@ -570,9 +570,7 @@ class Buffer {
         continue;
       }
       final line = lines[segment.line];
-      if (!(segment.line == range.begin.y ||
-          segment.line == 0 ||
-          line.isWrapped)) {
+      if (!(segment.line == range.begin.y || segment.line == 0 || line.isWrapped)) {
         builder.write("\n");
       }
       builder.write(line.getText(segment.start, segment.end));

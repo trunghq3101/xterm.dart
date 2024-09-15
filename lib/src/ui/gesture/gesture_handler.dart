@@ -79,9 +79,7 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
     );
   }
 
-  bool get _shouldSendTapEvent =>
-      !widget.readOnly &&
-      widget.terminalController.shouldSendPointerInput(PointerInput.tap);
+  bool get _shouldSendTapEvent => !widget.readOnly && widget.terminalController.shouldSendPointerInput(PointerInput.tap);
 
   void _tapDown(
     GestureTapDownCallback? callback,
@@ -177,9 +175,7 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   void onDragStart(DragStartDetails details) {
     _lastDragStartDetails = details;
 
-    details.kind == PointerDeviceKind.mouse
-        ? renderTerminal.selectCharacters(details.localPosition)
-        : renderTerminal.selectWord(details.localPosition);
+    details.kind == PointerDeviceKind.mouse ? renderTerminal.selectCharacters(details.localPosition) : renderTerminal.selectWord(details.localPosition);
   }
 
   void onDragUpdate(DragUpdateDetails details) {

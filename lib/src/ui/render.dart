@@ -218,8 +218,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   }
 
   /// Total height of the terminal in pixels. Includes scrollback buffer.
-  double get _terminalHeight =>
-      _terminal.buffer.lines.length * _painter.cellSize.height;
+  double get _terminalHeight => _terminal.buffer.lines.length * _painter.cellSize.height;
 
   /// The distance from the top of the terminal to the top of the viewport.
   // double get _scrollOffset => _offset.pixels;
@@ -242,11 +241,12 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   }
 
   /// Get the [CellOffset] of the cell that [offset] is in.
-  CellOffset getCellOffset(Offset offset) {
+  CellOffset getCellOffset(Offset offset, {bool ignoreScrollOffset = false}) {
     final x = offset.dx - _padding.left;
-    final y = offset.dy - _padding.top + _scrollOffset;
+    final y = offset.dy - _padding.top + (ignoreScrollOffset ? 0 : _scrollOffset);
     final row = y ~/ _painter.cellSize.height;
     final col = x ~/ _painter.cellSize.width;
+
     return CellOffset(
       col.clamp(0, _terminal.viewWidth - 1),
       row.clamp(0, _terminal.buffer.lines.length - 1),
@@ -280,21 +280,60 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   /// Selects characters in the terminal that starts from [from] to [to]. At
   /// least one cell is selected even if [from] and [to] are same.
   void selectCharacters(Offset from, [Offset? to]) {
-    final fromPosition = getCellOffset(from);
+    bool ignoreScrollOffsetFrom = false;
+    bool ignoreScrollOffsetTo = false;
+
+    if (to != null) {
+      if (from.dy < to.dy) {
+        ignoreScrollOffsetFrom = true;
+        ignoreScrollOffsetTo = false;
+      }
+    }
+
+    CellOffset fromPosition;
+
+    if (_controller.selection != null) {
+      fromPosition = _controller.selection!.begin;
+    } else {
+      fromPosition = getCellOffset(from, ignoreScrollOffset: ignoreScrollOffsetFrom);
+    }
+
+    CellOffset? toPosition;
+
     if (to == null) {
       _controller.setSelection(
         _terminal.buffer.createAnchorFromOffset(fromPosition),
         _terminal.buffer.createAnchorFromOffset(fromPosition),
       );
     } else {
-      var toPosition = getCellOffset(to);
-      if (toPosition.x >= fromPosition.x) {
-        toPosition = CellOffset(toPosition.x + 1, toPosition.y);
-      }
+      toPosition = getCellOffset(to, ignoreScrollOffset: ignoreScrollOffsetTo);
       _controller.setSelection(
         _terminal.buffer.createAnchorFromOffset(fromPosition),
         _terminal.buffer.createAnchorFromOffset(toPosition),
       );
+    }
+
+    _ensureSelectionVisible(toPosition ?? fromPosition);
+  }
+
+  void _ensureSelectionVisible(CellOffset position) {
+    final visibleLines = _viewportHeight ~/ _painter.cellSize.height;
+
+    int targetLine = position.y;
+    double newScrollOffset = _scrollOffset;
+
+    if (targetLine < _scrollOffset / _painter.cellSize.height) {
+      // Scroll up
+      newScrollOffset = targetLine * _painter.cellSize.height;
+    } else if (targetLine >= (_scrollOffset / _painter.cellSize.height + visibleLines)) {
+      // Scroll down
+      newScrollOffset = (targetLine - visibleLines + 1) * _painter.cellSize.height;
+    }
+
+    newScrollOffset = newScrollOffset.clamp(0.0, _maxScrollExtent);
+    if (newScrollOffset != _scrollOffset) {
+      _offset.correctBy(newScrollOffset - _scrollOffset);
+      _onScroll();
     }
   }
 
@@ -421,8 +460,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       );
     }
 
-    if (_terminal.buffer.absoluteCursorY >= effectFirstLine &&
-        _terminal.buffer.absoluteCursorY <= effectLastLine) {
+    if (_terminal.buffer.absoluteCursorY >= effectFirstLine && _terminal.buffer.absoluteCursorY <= effectLastLine) {
       if (_isComposingText) {
         _paintComposingText(canvas, offset + cursorOffset);
       }
@@ -517,9 +555,7 @@ class RenderTerminal extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     for (var highlight in _controller.highlights) {
       final range = highlight.range?.normalized;
 
-      if (range == null ||
-          range.begin.y > lastLine ||
-          range.end.y < firstLine) {
+      if (range == null || range.begin.y > lastLine || range.end.y < firstLine) {
         continue;
       }
 
